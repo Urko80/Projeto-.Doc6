@@ -79,6 +79,9 @@ constexpr uint8_t MODE1_AI = 0x20;
 constexpr uint8_t MODE1_SLEEP = 0x10;
 
 static i2c_master_bus_handle_t s_i2c_bus = nullptr;
+// DOC — barramento fornecido pela placa (VL53L0X + PCA9685) e se este módulo o criou.
+static i2c_master_bus_handle_t s_shared_bus = nullptr;
+static bool s_i2c_bus_owned = false;
 static i2c_master_dev_handle_t s_pca = nullptr;
 static httpd_handle_t s_http = nullptr;
 static SemaphoreHandle_t s_mutex = nullptr;
@@ -126,16 +129,23 @@ static esp_err_t PcaSetChannelOff(uint8_t channel) {
 // DOC FIM
 
 static esp_err_t PcaInitialize() {
-    i2c_master_bus_config_t bus_cfg = {};
-    bus_cfg.i2c_port = I2C_NUM_0;
-    bus_cfg.sda_io_num = PCA_SDA_GPIO;
-    bus_cfg.scl_io_num = PCA_SCL_GPIO;
-    bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
-    bus_cfg.glitch_ignore_cnt = 7;
-    bus_cfg.flags.enable_internal_pullup = true;
+    esp_err_t err = ESP_OK;
+    if (s_shared_bus != nullptr) {
+        s_i2c_bus = s_shared_bus;
+        s_i2c_bus_owned = false;
+    } else {
+        i2c_master_bus_config_t bus_cfg = {};
+        bus_cfg.i2c_port = I2C_NUM_0;
+        bus_cfg.sda_io_num = PCA_SDA_GPIO;
+        bus_cfg.scl_io_num = PCA_SCL_GPIO;
+        bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
+        bus_cfg.glitch_ignore_cnt = 7;
+        bus_cfg.flags.enable_internal_pullup = true;
 
-    esp_err_t err = i2c_new_master_bus(&bus_cfg, &s_i2c_bus);
-    if (err != ESP_OK) return err;
+        err = i2c_new_master_bus(&bus_cfg, &s_i2c_bus);
+        if (err != ESP_OK) return err;
+        s_i2c_bus_owned = true;
+    }
 
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
@@ -427,7 +437,11 @@ static esp_err_t RegisterUri(httpd_handle_t server, const char* uri, httpd_metho
 
 } // namespace
 
-extern "C" void DocWebServoApiStart(void) {
+extern "C" void DocWebServoApiSetSharedBus(i2c_master_bus_handle_t bus) {
+    s_shared_bus = bus;
+}
+
+void DocWebServoApiStart(void) {
     if (s_started) return;
 
     s_mutex = xSemaphoreCreateMutex();
@@ -499,10 +513,11 @@ extern "C" void DocWebServoApiStop(void) {
         i2c_master_bus_rm_device(s_pca);
         s_pca = nullptr;
     }
-    if (s_i2c_bus != nullptr) {
+    if (s_i2c_bus != nullptr && s_i2c_bus_owned) {
         i2c_del_master_bus(s_i2c_bus);
-        s_i2c_bus = nullptr;
     }
+    s_i2c_bus = nullptr;
+    s_i2c_bus_owned = false;
     if (s_mutex != nullptr) {
         vSemaphoreDelete(s_mutex);
         s_mutex = nullptr;

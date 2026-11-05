@@ -1108,6 +1108,10 @@ endif()
 # DOC FIM — interface web embutida
 
 set(MAIN_PRIV_REQUIRES_EXTRA "")
+# DOC — driver VL53L0X só para a placa DOC AI S3CAM
+if(CONFIG_BOARD_TYPE_DOC_AI_S3CAM)
+    list(APPEND MAIN_PRIV_REQUIRES_EXTRA vl53l0x_driver)
+endif()
 if(CONFIG_XIAOZHI_NETWORK_ETHERNET AND CONFIG_XIAOZHI_ETH_PHY_IP101)
     list(APPEND MAIN_PRIV_REQUIRES_EXTRA espressif__ip101)
 endif()

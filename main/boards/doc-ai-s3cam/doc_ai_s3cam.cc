@@ -6,6 +6,11 @@
 #include "display/lcd_display.h"
 #include "display/custom_eyes.h"
 #include "web_servo_api.h"
+#include "mcp_server.h"
+// DOC INÍCIO — driver do VL53L0X (ver nota no README: não incluído neste repositório)
+#include "vl53l0x_driver.h"
+#include <driver/i2c_master.h>
+// DOC FIM
 
 #include "esp32_camera.h"
 #include <atomic>
@@ -24,6 +29,11 @@
 class DocAiS3Cam : public WifiBoard {
 private:
     Button boot_button_;
+    // DOC INÍCIO — sensores de toque (TTP223) e distância (VL53L0X)
+    Button touch_button_;
+    i2c_master_bus_handle_t i2c_bus_ = nullptr;
+    vl53l0x_driver_t* distance_sensor_ = nullptr;
+    // DOC FIM
     Display* display_ = nullptr;
     bool servo_api_started_ = false;
 
@@ -125,6 +135,84 @@ private:
         });
     }
 
+    // DOC INÍCIO — toque TTP223 no GPIO 48: alterna o estado da conversa.
+    void InitializeTouchSensor() {
+        touch_button_.OnClick([]() {
+            Application::GetInstance().ToggleChatState();
+        });
+        ESP_LOGI(TAG, "TTP223 touch sensor on GPIO %d", TOUCH_BUTTON_GPIO);
+    }
+
+    // DOC INÍCIO — barramento I2C0 criado uma única vez pela placa.
+    // O PCA9685 (web_servo_api) reutiliza este mesmo barramento.
+    bool InitializeI2cBus() {
+        i2c_master_bus_config_t bus_config = {};
+        bus_config.i2c_port = I2C_NUM_0;
+        bus_config.sda_io_num = DOC_I2C_SDA_GPIO;
+        bus_config.scl_io_num = DOC_I2C_SCL_GPIO;
+        bus_config.clk_source = I2C_CLK_SRC_DEFAULT;
+        bus_config.glitch_ignore_cnt = 7;
+        bus_config.flags.enable_internal_pullup = true;
+
+        esp_err_t err = i2c_new_master_bus(&bus_config, &i2c_bus_);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "I2C bus init failed: %s", esp_err_to_name(err));
+            i2c_bus_ = nullptr;
+            return false;
+        }
+        DocWebServoApiSetSharedBus(i2c_bus_);
+        return true;
+    }
+
+    // Inicializa o VL53L0X no barramento compartilhado.
+    void InitializeDistanceSensor() {
+        if (i2c_bus_ == nullptr) {
+            return;
+        }
+        esp_err_t err = vl53l0x_driver_create_on_bus(
+            i2c_bus_, VL53L0X_I2C_ADDRESS, DOC_I2C_FREQUENCY_HZ, 1000,
+            &distance_sensor_);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "VL53L0X init failed: %s", esp_err_to_name(err));
+            distance_sensor_ = nullptr;
+            return;
+        }
+        ESP_LOGI(TAG, "VL53L0X ready at 0x%02X", VL53L0X_I2C_ADDRESS);
+    }
+
+    // Só registra a ferramenta MCP se o sensor foi inicializado com sucesso.
+    void InitializeDistanceMcpTool() {
+        if (distance_sensor_ == nullptr) {
+            return;
+        }
+        auto& mcp = McpServer::GetInstance();
+        mcp.AddTool(
+            "self.doc.distance.read",
+            "Read one VL53L0X distance measurement. Returns millimeters.",
+            PropertyList(),
+            [this](const PropertyList&) -> ToolResult {
+                uint16_t distance_mm = 0;
+                esp_err_t err =
+                    vl53l0x_driver_read_mm(distance_sensor_, &distance_mm);
+                if (err != ESP_OK) {
+                    return std::unexpected(
+                        "VL53L0X measurement failed: " +
+                        std::string(esp_err_to_name(err)));
+                }
+                return std::string("{\"distance_mm\":") +
+                       std::to_string(distance_mm) + "}";
+            });
+    }
+
+    // Leitura em milímetros; ESP_ERR_INVALID_STATE se o sensor não estiver pronto.
+    esp_err_t ReadDistanceMillimeters(uint16_t* distance_mm) {
+        if (distance_sensor_ == nullptr || distance_mm == nullptr) {
+            return ESP_ERR_INVALID_STATE;
+        }
+        return vl53l0x_driver_read_mm(distance_sensor_, distance_mm);
+    }
+    // DOC FIM — sensores de toque e distância
+
     // DOC INÍCIO — API web inicia somente após a rede estar conectada
     void HandleNetworkEvent(NetworkEvent event, const std::string& data) {
         if (event == NetworkEvent::Connected && !servo_api_started_) {
@@ -214,9 +302,15 @@ public:
     }
     // DOC FIM
 
-    DocAiS3Cam() : boot_button_(BOOT_BUTTON_GPIO) {
+    DocAiS3Cam() : boot_button_(BOOT_BUTTON_GPIO),
+                   touch_button_(TOUCH_BUTTON_GPIO, true) {
         ESP_LOGI(TAG, "DOC AI S3CAM board startup");
         InitializeButtons();
+        InitializeTouchSensor();
+        if (InitializeI2cBus()) {
+            InitializeDistanceSensor();
+        }
+        InitializeDistanceMcpTool();
         InitializeDisplay();
 
         // A Application registra seu callback durante Initialize().
@@ -234,6 +328,16 @@ public:
         CloseCamera();
         if (servo_api_started_) {
             DocWebServoApiStop();
+        }
+        // DOC — ordem: sensor antes do barramento; o barramento é de fora do módulo servo.
+        if (distance_sensor_ != nullptr) {
+            vl53l0x_driver_delete(distance_sensor_);
+            distance_sensor_ = nullptr;
+        }
+        if (i2c_bus_ != nullptr) {
+            DocWebServoApiSetSharedBus(nullptr);
+            i2c_del_master_bus(i2c_bus_);
+            i2c_bus_ = nullptr;
         }
     }
 

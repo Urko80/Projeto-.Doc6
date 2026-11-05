@@ -20,7 +20,17 @@
 #define AUDIO_I2S_SPK_GPIO_DOUT GPIO_NUM_47
 
 #define BOOT_BUTTON_GPIO        GPIO_NUM_0
-#define TOUCH_BUTTON_GPIO       GPIO_NUM_NC
+// DOC INÍCIO — sensor de toque TTP223 (saída ativa em nível alto)
+#define TOUCH_BUTTON_GPIO       GPIO_NUM_48
+// DOC FIM
+
+// DOC INÍCIO — sensor de distância VL53L0X no barramento I2C compartilhado
+// com o PCA9685 (SDA GPIO19 / SCL GPIO20, 100 kHz, endereço 0x29).
+#define DOC_I2C_SDA_GPIO        GPIO_NUM_19
+#define DOC_I2C_SCL_GPIO        GPIO_NUM_20
+#define DOC_I2C_FREQUENCY_HZ    100000
+#define VL53L0X_I2C_ADDRESS     0x29
+// DOC FIM
 #define ASR_BUTTON_GPIO         GPIO_NUM_NC
 #define VOLUME_UP_BUTTON_GPIO   GPIO_NUM_NC
 #define VOLUME_DOWN_BUTTON_GPIO GPIO_NUM_NC

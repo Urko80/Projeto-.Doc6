@@ -1,5 +1,7 @@
 #pragma once
 
+#include <driver/i2c_master.h>
+
 /**
  * DOC INÍCIO — API web para controle seguro do PCA9685
  *
@@ -23,6 +25,14 @@ void DocWebServoApiStart(void);
 
 /** Para motores contínuos e encerra o servidor HTTP. */
 void DocWebServoApiStop(void);
+
+/**
+ * DOC INÍCIO — barramento I2C compartilhado.
+ * Se a placa já criou o barramento I2C0 (GPIO19/20), passe o handle aqui antes
+ * de DocWebServoApiStart(). O módulo então não cria nem remove esse barramento.
+ */
+void DocWebServoApiSetSharedBus(i2c_master_bus_handle_t bus);
+// DOC FIM
 
 #ifdef __cplusplus
 }

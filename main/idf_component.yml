@@ -152,6 +152,13 @@ dependencies:
     version: '*'
 
   ## Required IDF version
+  # DOC — driver ST VL53L0X (sensor de distância), versão fixada para build reprodutível
+  vl53l0x_driver:
+    git: https://github.com/Answer1100/esp-idf-vl53l0x-driver.git
+    version: 1dd9ff3cbd2fecafe98c71003f5df57d86cd61ab
+    rules:
+    - if: target in [esp32s3]
+
   idf:
     version: '>=6.0.1'
   kevincoooool/esp_lcd_st7102:
