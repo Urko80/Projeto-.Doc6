@@ -264,7 +264,7 @@ static void init_one_eye(eye_t *eye, lv_obj_t *parent)
  * ============================================================ */
 
 static lv_obj_t *create_effect_label(lv_obj_t *parent, const char *symbol,
-                                     uint32_t color, uint8_t size)
+                                     uint32_t color, uint16_t size)
 {
     lv_obj_t *obj = lv_label_create(parent);
     lv_label_set_text(obj, symbol);
@@ -307,7 +307,7 @@ static lv_obj_t *create_effect_line(lv_obj_t *parent, uint32_t color, int width)
 static void create_expression_effects(lv_obj_t *parent)
 {
     /* DOC — Símbolo de coração fornecido pela fonte de símbolos do LVGL. */
-    heart_left = create_effect_label(parent, LV_SYMBOL_HEART, 0xFF6FAE, 2);
+    heart_left = create_effect_label(parent, LV_SYMBOL_HEART, 0xFF6FAE, 384);
     heart_right = create_effect_label(parent, LV_SYMBOL_HEART, 0xFF6FAE, 2);
 
     /* DOC — Lágrimas simples; o deslocamento vertical simula a queda. */
