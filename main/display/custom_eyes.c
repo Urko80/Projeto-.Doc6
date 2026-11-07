@@ -156,6 +156,25 @@ static bool is_blinking = false;
 static uint32_t next_blink_time = 0;
 static uint32_t last_look_change = 0;
 
+/* DOC — Objetos decorativos da segunda etapa. Todos são criados uma vez
+ * e apenas reposicionados/ocultados no timer para evitar alocações contínuas.
+ */
+static lv_obj_t *heart_left = NULL;
+static lv_obj_t *heart_right = NULL;
+static lv_obj_t *tear_left = NULL;
+static lv_obj_t *tear_right = NULL;
+static lv_obj_t *spiral_left = NULL;
+static lv_obj_t *spiral_right = NULL;
+static lv_obj_t *anger_mark = NULL;
+static lv_obj_t *star_left = NULL;
+static lv_obj_t *star_right = NULL;
+static lv_point_t spiral_left_points[13];
+static lv_point_t spiral_right_points[13];
+static lv_point_t star_left_points[11];
+static lv_point_t star_right_points[11];
+static lv_point_t anger_points[5];
+static float effect_phase = 0.0f;
+
 /* ============================================================
  * DOC — 4. CRIAÇÃO DOS OBJETOS LVGL
  * ============================================================ */
@@ -237,6 +256,150 @@ static void init_one_eye(eye_t *eye, lv_obj_t *parent)
     eye->target_width = (float)EYE_WIDTH_BASE;
     eye->target_height = (float)EYE_HEIGHT_BASE;
     eye->target_open = 1.0f;
+}
+
+/* ============================================================
+ * DOC — 4B. EFEITOS DECORATIVOS LVGL
+ * DOC — Objetos são criados uma única vez e reaproveitados pelo timer.
+ * ============================================================ */
+
+static lv_obj_t *create_effect_label(lv_obj_t *parent, const char *symbol,
+                                     uint32_t color, uint8_t size)
+{
+    lv_obj_t *obj = lv_label_create(parent);
+    lv_label_set_text(obj, symbol);
+    lv_obj_set_style_text_color(obj, lv_color_hex(color), 0);
+    lv_obj_set_style_text_font(obj, LV_FONT_DEFAULT, 0);
+    lv_obj_set_style_text_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_text_letter_space(obj, 0, 0);
+    lv_obj_set_style_text_line_space(obj, 0, 0);
+    lv_obj_set_style_transform_zoom(obj, size, 0);
+    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    return obj;
+}
+
+static lv_obj_t *create_effect_dot(lv_obj_t *parent, uint32_t color, int size)
+{
+    lv_obj_t *obj = lv_obj_create(parent);
+    lv_obj_set_size(obj, size, size);
+    lv_obj_set_style_radius(obj, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(color), 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(obj, 0, 0);
+    lv_obj_set_style_pad_all(obj, 0, 0);
+    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    return obj;
+}
+
+static lv_obj_t *create_effect_line(lv_obj_t *parent, uint32_t color, int width)
+{
+    lv_obj_t *obj = lv_line_create(parent);
+    lv_obj_set_style_line_color(obj, lv_color_hex(color), 0);
+    lv_obj_set_style_line_width(obj, width, 0);
+    lv_obj_set_style_line_rounded(obj, true, 0);
+    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    return obj;
+}
+
+static void create_expression_effects(lv_obj_t *parent)
+{
+    /* DOC — Símbolo de coração fornecido pela fonte de símbolos do LVGL. */
+    heart_left = create_effect_label(parent, LV_SYMBOL_HEART, 0xFF6FAE, 2);
+    heart_right = create_effect_label(parent, LV_SYMBOL_HEART, 0xFF6FAE, 2);
+
+    /* DOC — Lágrimas simples; o deslocamento vertical simula a queda. */
+    tear_left = create_effect_dot(parent, 0x55BFFF, 5);
+    tear_right = create_effect_dot(parent, 0x55BFFF, 5);
+
+    /* DOC — Linhas para espirais, marca de raiva e estrelas. */
+    spiral_left = create_effect_line(parent, 0xF5C451, 2);
+    spiral_right = create_effect_line(parent, 0xF5C451, 2);
+    anger_mark = create_effect_line(parent, 0xFF5A36, 2);
+    star_left = create_effect_line(parent, 0xFFD34E, 2);
+    star_right = create_effect_line(parent, 0xFFD34E, 2);
+}
+
+static void hide_expression_effects(void)
+{
+    lv_obj_t *items[] = {heart_left, heart_right, tear_left, tear_right,
+                         spiral_left, spiral_right, anger_mark,
+                         star_left, star_right};
+    for (size_t i = 0; i < sizeof(items) / sizeof(items[0]); i++) {
+        if (items[i] != NULL) lv_obj_add_flag(items[i], LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+/* DOC — Atualiza uma estrela de cinco pontas como polilinha LVGL. */
+static void update_star_points(lv_point_t *points, int cx, int cy, int radius,
+                               float rotation)
+{
+    for (int i = 0; i < 10; i++) {
+        float angle = rotation - 1.5707963f + (float)i * 0.6283185f;
+        float r = (i % 2 == 0) ? (float)radius : (float)radius * 0.43f;
+        points[i].x = (lv_coord_t)(cx + cosf(angle) * r);
+        points[i].y = (lv_coord_t)(cy + sinf(angle) * r);
+    }
+    points[10] = points[0];
+}
+
+/* DOC — Atualiza os efeitos sem criar objetos durante a animação. */
+static void update_expression_effects(uint32_t now, int center_y,
+                                      int left_cx, int right_cx)
+{
+    if (heart_left == NULL) return;
+
+    hide_expression_effects();
+    effect_phase += 0.10f;
+
+    if (current_expression == DOC_EXPR_LOVE) {
+        int float_y = (int)(sinf(effect_phase) * 4.0f);
+        lv_obj_clear_flag(heart_left, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(heart_right, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(heart_left, left_cx - 8, center_y + 28 - float_y);
+        lv_obj_set_pos(heart_right, right_cx + 2, center_y + 20 + float_y);
+    } else if (current_expression == DOC_EXPR_SAD) {
+        int fall = (int)((now / 55U) % 13U);
+        lv_obj_clear_flag(tear_left, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(tear_right, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(tear_left, left_cx + 8, center_y + 13 + fall);
+        lv_obj_set_pos(tear_right, right_cx + 8, center_y + 13 + ((fall + 6) % 13));
+    } else if (current_expression == DOC_EXPR_DIZZY) {
+        /* DOC — Espirais formadas por 13 pontos; rotação contínua e suave. */
+        for (int i = 0; i < 13; i++) {
+            float t = (float)i / 12.0f;
+            float a = effect_phase * 1.8f + t * 6.2831853f;
+            float r = 2.0f + t * 10.0f;
+            spiral_left_points[i].x = (lv_coord_t)(left_cx + cosf(a) * r);
+            spiral_left_points[i].y = (lv_coord_t)(center_y + sinf(a) * r);
+            spiral_right_points[i].x = (lv_coord_t)(right_cx + cosf(-a) * r);
+            spiral_right_points[i].y = (lv_coord_t)(center_y + sinf(-a) * r);
+        }
+        lv_line_set_points(spiral_left, spiral_left_points, 13);
+        lv_line_set_points(spiral_right, spiral_right_points, 13);
+        lv_obj_clear_flag(spiral_left, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(spiral_right, LV_OBJ_FLAG_HIDDEN);
+    } else if (current_expression == DOC_EXPR_ANGRY ||
+               current_expression == DOC_EXPR_FURIOUS) {
+        /* DOC — Marca de raiva em zigue-zague no canto superior direito. */
+        anger_points[0] = (lv_point_t){right_cx + 10, center_y - 20};
+        anger_points[1] = (lv_point_t){right_cx + 17, center_y - 14};
+        anger_points[2] = (lv_point_t){right_cx + 12, center_y - 8};
+        anger_points[3] = (lv_point_t){right_cx + 20, center_y - 3};
+        anger_points[4] = (lv_point_t){right_cx + 14, center_y + 2};
+        lv_line_set_points(anger_mark, anger_points, 5);
+        lv_obj_clear_flag(anger_mark, LV_OBJ_FLAG_HIDDEN);
+    } else if (current_expression == DOC_EXPR_STAR_EYES) {
+        /* DOC — Duas estrelas desenhadas em polilinha, sincronizadas com o olhar. */
+        update_star_points(star_left_points, left_cx, center_y, 13, effect_phase * 0.4f);
+        update_star_points(star_right_points, right_cx, center_y, 13, -effect_phase * 0.4f);
+        lv_line_set_points(star_left, star_left_points, 11);
+        lv_line_set_points(star_right, star_right_points, 11);
+        lv_obj_clear_flag(star_left, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(star_right, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 /* ============================================================
@@ -685,6 +848,9 @@ static void anim_timer_cb(lv_timer_t *timer)
 
     update_eye_visual(&left_eye, left_cx, center_y);
     update_eye_visual(&right_eye, right_cx, center_y);
+
+    /* DOC — Efeitos decorativos sincronizados com a expressão atual. */
+    update_expression_effects(now, center_y, left_cx, right_cx);
 }
 
 /* ============================================================
@@ -714,6 +880,9 @@ void CustomEyes_Init(lv_obj_t *parent)
 
     init_one_eye(&left_eye, parent);
     init_one_eye(&right_eye, parent);
+
+    /* DOC — Cria uma única vez os elementos gráficos da segunda etapa. */
+    create_expression_effects(parent);
 
     current_state = EYES_STATE_IDLE;
     current_expression = DOC_EXPR_NEUTRAL;
@@ -963,6 +1132,19 @@ void CustomEyes_Deinit(void)
     if (right_eye.highlight != NULL) {
         lv_obj_del(right_eye.highlight);
     }
+
+    /* DOC — Libera também os objetos decorativos criados pelo módulo. */
+    lv_obj_t *effects[] = {heart_left, heart_right, tear_left, tear_right,
+                           spiral_left, spiral_right, anger_mark,
+                           star_left, star_right};
+    for (size_t i = 0; i < sizeof(effects) / sizeof(effects[0]); i++) {
+        if (effects[i] != NULL) lv_obj_del(effects[i]);
+    }
+
+    heart_left = heart_right = NULL;
+    tear_left = tear_right = NULL;
+    spiral_left = spiral_right = NULL;
+    anger_mark = star_left = star_right = NULL;
 
     memset(&left_eye, 0, sizeof(left_eye));
     memset(&right_eye, 0, sizeof(right_eye));
