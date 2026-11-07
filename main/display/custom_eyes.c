@@ -168,11 +168,12 @@ static lv_obj_t *spiral_right = NULL;
 static lv_obj_t *anger_mark = NULL;
 static lv_obj_t *star_left = NULL;
 static lv_obj_t *star_right = NULL;
-static lv_point_t spiral_left_points[13];
-static lv_point_t spiral_right_points[13];
-static lv_point_t star_left_points[11];
-static lv_point_t star_right_points[11];
-static lv_point_t anger_points[5];
+/* DOC — LVGL 9 usa lv_point_precise_t na API de linhas. */
+static lv_point_precise_t spiral_left_points[13];
+static lv_point_precise_t spiral_right_points[13];
+static lv_point_precise_t star_left_points[11];
+static lv_point_precise_t star_right_points[11];
+static lv_point_precise_t anger_points[5];
 static float effect_phase = 0.0f;
 
 /* ============================================================
@@ -306,9 +307,10 @@ static lv_obj_t *create_effect_line(lv_obj_t *parent, uint32_t color, int width)
 
 static void create_expression_effects(lv_obj_t *parent)
 {
-    /* DOC — Símbolo de coração fornecido pela fonte de símbolos do LVGL. */
-    heart_left = create_effect_label(parent, LV_SYMBOL_HEART, 0xFF6FAE, 384);
-    heart_right = create_effect_label(parent, LV_SYMBOL_HEART, 0xFF6FAE, 2);
+    /* DOC — '<3' usa somente caracteres ASCII, disponíveis na fonte padrão. */
+    /* DOC — O zoom 384 equivale a 1,5x (256 = escala original). */
+    heart_left = create_effect_label(parent, "<3", 0xFF6FAE, 384);
+    heart_right = create_effect_label(parent, "<3", 0xFF6FAE, 384);
 
     /* DOC — Lágrimas simples; o deslocamento vertical simula a queda. */
     tear_left = create_effect_dot(parent, 0x55BFFF, 5);
@@ -333,7 +335,7 @@ static void hide_expression_effects(void)
 }
 
 /* DOC — Atualiza uma estrela de cinco pontas como polilinha LVGL. */
-static void update_star_points(lv_point_t *points, int cx, int cy, int radius,
+static void update_star_points(lv_point_precise_t *points, int cx, int cy, int radius,
                                float rotation)
 {
     for (int i = 0; i < 10; i++) {
@@ -372,10 +374,10 @@ static void update_expression_effects(uint32_t now, int center_y,
             float t = (float)i / 12.0f;
             float a = effect_phase * 1.8f + t * 6.2831853f;
             float r = 2.0f + t * 10.0f;
-            spiral_left_points[i].x = (lv_coord_t)(left_cx + cosf(a) * r);
-            spiral_left_points[i].y = (lv_coord_t)(center_y + sinf(a) * r);
-            spiral_right_points[i].x = (lv_coord_t)(right_cx + cosf(-a) * r);
-            spiral_right_points[i].y = (lv_coord_t)(center_y + sinf(-a) * r);
+            spiral_left_points[i].x = (lv_value_precise_t)(left_cx + cosf(a) * r);
+            spiral_left_points[i].y = (lv_value_precise_t)(center_y + sinf(a) * r);
+            spiral_right_points[i].x = (lv_value_precise_t)(right_cx + cosf(-a) * r);
+            spiral_right_points[i].y = (lv_value_precise_t)(center_y + sinf(-a) * r);
         }
         lv_line_set_points(spiral_left, spiral_left_points, 13);
         lv_line_set_points(spiral_right, spiral_right_points, 13);
@@ -384,11 +386,11 @@ static void update_expression_effects(uint32_t now, int center_y,
     } else if (current_expression == DOC_EXPR_ANGRY ||
                current_expression == DOC_EXPR_FURIOUS) {
         /* DOC — Marca de raiva em zigue-zague no canto superior direito. */
-        anger_points[0] = (lv_point_t){right_cx + 10, center_y - 20};
-        anger_points[1] = (lv_point_t){right_cx + 17, center_y - 14};
-        anger_points[2] = (lv_point_t){right_cx + 12, center_y - 8};
-        anger_points[3] = (lv_point_t){right_cx + 20, center_y - 3};
-        anger_points[4] = (lv_point_t){right_cx + 14, center_y + 2};
+        anger_points[0] = (lv_point_precise_t){right_cx + 10, center_y - 20};
+        anger_points[1] = (lv_point_precise_t){right_cx + 17, center_y - 14};
+        anger_points[2] = (lv_point_precise_t){right_cx + 12, center_y - 8};
+        anger_points[3] = (lv_point_precise_t){right_cx + 20, center_y - 3};
+        anger_points[4] = (lv_point_precise_t){right_cx + 14, center_y + 2};
         lv_line_set_points(anger_mark, anger_points, 5);
         lv_obj_clear_flag(anger_mark, LV_OBJ_FLAG_HIDDEN);
     } else if (current_expression == DOC_EXPR_STAR_EYES) {
