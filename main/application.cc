@@ -1039,7 +1039,10 @@ void Application::HandleStateChangedEvent() {
             break;
         case kDeviceStateListening:
             display->SetStatus(Lang::Strings::LISTENING);
-            display->SetEmotion("neutral");
+
+            // DOC — Informa ao motor de olhos que o dispositivo está ouvindo.
+            // Antes era enviado "neutral", mantendo os olhos sempre no preset neutro.
+            display->SetEmotion("listening");
 
             // Make sure the audio processor is running
             if (play_popup_on_listening_ || !audio_service_.IsAudioProcessorRunning()) {
@@ -1059,6 +1062,10 @@ void Application::HandleStateChangedEvent() {
         case kDeviceStateSpeaking:
             display->SetStatus(Lang::Strings::SPEAKING);
 
+            // DOC — Ativa a expressão de fala durante a reprodução da resposta.
+            // Sem esta chamada, os olhos permaneciam na última expressão recebida.
+            display->SetEmotion("speaking");
+
             if (listening_mode_ != kListeningModeRealtime) {
                 audio_service_.EnableVoiceProcessing(false);
                 // Only AFE wake word can be detected in speaking mode
@@ -1068,6 +1075,10 @@ void Application::HandleStateChangedEvent() {
             break;
         case kDeviceStateNotifying:
             display->SetStatus(Lang::Strings::SPEAKING);
+
+            // DOC — Notificações também usam a animação de fala.
+            display->SetEmotion("speaking");
+
             audio_service_.EnableVoiceProcessing(false);
             audio_service_.EnableWakeWordDetection(audio_service_.IsAfeWakeWord());
             break;
