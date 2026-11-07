@@ -33,6 +33,12 @@ protected:
     std::unique_ptr<LvglImage> preview_image_cached_ = nullptr;
     bool hide_subtitle_ = false;  // Control whether to hide chat messages/subtitles
 
+    // DOC INÍCIO — painel de aplicativos (retângulo arredondado verde/azul escuro)
+    lv_obj_t* app_panel_ = nullptr;
+    lv_obj_t* app_tiles_[4] = {nullptr, nullptr, nullptr, nullptr};
+    int app_selected_ = 0;
+    // DOC FIM
+
 
 
 
@@ -65,6 +71,8 @@ public:
     virtual void SetPreviewImage(std::unique_ptr<LvglImage> image) override;
     // DOC — Alterna entre a prévia normal e o layout de câmera 128x128 em y=32.
     void SetCameraPreviewMode(bool enabled);
+    // DOC — Destaca o app selecionado no painel (0..3).
+    void SetAppSelected(int index);
     virtual void SetupUI() override;
     // Add theme switching function
     virtual void SetTheme(Theme* theme) override;

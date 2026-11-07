@@ -136,6 +136,9 @@ static lv_obj_t *parent_ref = NULL;
 /* DOC — Controla se os olhos ocupam a faixa superior ou o centro da tela. */
 static bool camera_mode_active = false;
 
+/* DOC — Mantém os olhos na faixa superior quando o painel de apps está visível. */
+static bool top_band_active = false;
+
 static eyes_state_t current_state = EYES_STATE_IDLE;
 static doc_expression_t current_expression = DOC_EXPR_NEUTRAL;
 
@@ -575,7 +578,7 @@ static void anim_timer_cb(lv_timer_t *timer)
 
     /* DOC — Calcula os centros para a tela vertical 128x160. */
     /* DOC — Câmera aberta: centro da faixa y=0..31; fechada: centro y=80. */
-    int center_y = (camera_mode_active ? (CAMERA_INFO_HEIGHT / 2) : (SCREEN_H / 2))
+    int center_y = ((camera_mode_active || top_band_active) ? (CAMERA_INFO_HEIGHT / 2) : (SCREEN_H / 2))
                  + EYE_CENTER_Y_OFFSET;
 
     int left_cx =
@@ -622,7 +625,7 @@ void CustomEyes_Init(lv_obj_t *parent)
 
     /* DOC — Posiciona os olhos antes do primeiro ciclo do timer. */
     /* DOC — Câmera aberta: centro da faixa y=0..31; fechada: centro y=80. */
-    int center_y = (camera_mode_active ? (CAMERA_INFO_HEIGHT / 2) : (SCREEN_H / 2))
+    int center_y = ((camera_mode_active || top_band_active) ? (CAMERA_INFO_HEIGHT / 2) : (SCREEN_H / 2))
                  + EYE_CENTER_Y_OFFSET;
 
     int left_cx =
@@ -778,6 +781,12 @@ void CustomEyes_SetCameraMode(bool enabled)
 {
     camera_mode_active = enabled;
     /* O timer reposiciona os olhos em até 33 ms, sem recriar objetos LVGL. */
+}
+
+/* DOC — Mantém os olhos na faixa superior (painel de apps). */
+void CustomEyes_SetTopBand(bool enabled)
+{
+    top_band_active = enabled;
 }
 /* DOC FIM — Modo de posição dos olhos para a câmera. */
 

@@ -401,6 +401,15 @@ void LcdDisplay::SetCameraPreviewMode(bool enabled) {
     DisplayLockGuard lock(this);
     camera_preview_mode_ = enabled;
 
+    // DOC — o painel de apps some enquanto a prévia da câmera ocupa a tela.
+    if (app_panel_ != nullptr) {
+        if (enabled) {
+            lv_obj_add_flag(app_panel_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_clear_flag(app_panel_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
     if (preview_image_ == nullptr) {
         return;  // SetupUI ainda não criou o objeto da prévia.
     }
@@ -431,6 +440,19 @@ void LcdDisplay::SetCameraPreviewMode(bool enabled) {
     }
 }
 /* DOC FIM — Layout dedicado à prévia da câmera do DOC. */
+
+// DOC — destaca o app selecionado no painel.
+void LcdDisplay::SetAppSelected(int index) {
+    DisplayLockGuard lock(this);
+    if (app_panel_ == nullptr || index < 0 || index >= 4) {
+        return;
+    }
+    for (int i = 0; i < 4; i++) {
+        lv_obj_set_style_bg_color(app_tiles_[i],
+            lv_color_hex(i == index ? 0x6BE8CC : 0x1FA58F), 0);
+    }
+    app_selected_ = index;
+}
 
 #if CONFIG_USE_WECHAT_MESSAGE_STYLE
 void LcdDisplay::SetupUI() {
@@ -995,6 +1017,43 @@ if (!custom_eyes_initialized_) {
     CustomEyes_Init(screen);
     custom_eyes_initialized_ = true;
 }
+
+// DOC INÍCIO — painel de aplicativos (olhos no topo, apps no centro)
+static const char* kDocAppNames[4] = {"CAM", "RADIO", "CRONO", "CUBE"};
+
+app_panel_ = lv_obj_create(screen);
+lv_obj_set_size(app_panel_, 112, 84);
+lv_obj_align(app_panel_, LV_ALIGN_TOP_MID, 0, 36);
+lv_obj_set_style_radius(app_panel_, 12, 0);
+lv_obj_set_style_bg_color(app_panel_, lv_color_hex(0x0E3B3B), 0);
+lv_obj_set_style_border_width(app_panel_, 1, 0);
+lv_obj_set_style_border_color(app_panel_, lv_color_hex(0x1FA58F), 0);
+lv_obj_set_style_pad_all(app_panel_, 6, 0);
+lv_obj_set_style_pad_row(app_panel_, 4, 0);
+lv_obj_set_style_pad_column(app_panel_, 4, 0);
+lv_obj_set_flex_flow(app_panel_, LV_FLEX_FLOW_ROW_WRAP);
+lv_obj_set_flex_align(app_panel_, LV_FLEX_ALIGN_SPACE_EVENLY,
+                      LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+lv_obj_set_scrollbar_mode(app_panel_, LV_SCROLLBAR_MODE_OFF);
+
+for (int i = 0; i < 4; i++) {
+    lv_obj_t* tile = lv_obj_create(app_panel_);
+    lv_obj_set_size(tile, 48, 34);
+    lv_obj_set_style_radius(tile, 8, 0);
+    lv_obj_set_style_bg_color(tile, lv_color_hex(0x1FA58F), 0);
+    lv_obj_set_style_border_width(tile, 0, 0);
+    lv_obj_set_style_pad_all(tile, 0, 0);
+    lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* label = lv_label_create(tile);
+    lv_label_set_text(label, kDocAppNames[i]);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x04201E), 0);
+    lv_obj_center(label);
+    app_tiles_[i] = tile;
+}
+SetAppSelected(0);
+CustomEyes_SetTopBand(true);
+// DOC FIM — painel de aplicativos
 
 
 
