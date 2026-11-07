@@ -581,6 +581,28 @@ void LcdDisplay::SetupUI() {
     lv_obj_set_style_text_font(emoji_label_, large_icon_font, 0);
     lv_obj_set_style_text_color(emoji_label_, lvgl_theme->text_color(), 0);
     lv_label_set_text(emoji_label_, MATERIAL_SYMBOLS_ROBOT_2);
+
+    /*
+     * DOC — Inicialização do motor de olhos também no layout WeChat.
+     * Neste layout, o SetupUI() não passava pelo bloco de inicialização
+     * existente no ramo #else. Por isso a placa continuava mostrando
+     * somente o ícone/emoji legado, mesmo com custom_eyes.c compilado.
+     *
+     * A inicialização ocorre depois do fundo e dos elementos da interface,
+     * deixando os olhos acima da camada de fundo. Os elementos legados
+     * centrais são ocultados para não ficarem sobrepostos aos olhos DOC.
+     */
+    if (!custom_eyes_initialized_) {
+        CustomEyes_Init(screen);
+        custom_eyes_initialized_ = true;
+    }
+
+    if (emoji_label_ != nullptr) {
+        lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (emoji_image_ != nullptr) {
+        lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 #if CONFIG_IDF_TARGET_ESP32P4
 #define MAX_MESSAGES 40
