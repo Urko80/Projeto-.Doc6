@@ -120,7 +120,18 @@ typedef enum {
     DOC_EXPR_ANGRY,
     DOC_EXPR_SURPRISED,
     DOC_EXPR_SLEEPY,
-    DOC_EXPR_CONFUSED
+    DOC_EXPR_CONFUSED,
+    /* DOC — Novas expressões portadas do sketch anexo, renderizadas como presets LVGL. */
+    DOC_EXPR_LOVE,
+    DOC_EXPR_DIZZY,
+    DOC_EXPR_WINK,
+    DOC_EXPR_FURIOUS,
+    DOC_EXPR_SMILE,
+    DOC_EXPR_SMUG,
+    DOC_EXPR_STAR_EYES,
+    DOC_EXPR_COOL,
+    DOC_EXPR_CHEEKY,
+    DOC_EXPR_DERP
 } doc_expression_t;
 
 /* ============================================================
@@ -354,6 +365,64 @@ static void apply_expression_targets(void)
             look_y = -0.12f;
             break;
 
+        case DOC_EXPR_LOVE:
+            /* DOC — Olhos semicerrados com tonalidade rosa (efeito de carinho). */
+            width = 39.0f; height = 24.0f; open = 0.88f;
+            break;
+
+        case DOC_EXPR_DIZZY:
+            /* DOC — Olhos circulares e olhar desalinhado; espirais animadas ficam para fase 2. */
+            width = 30.0f; height = 30.0f; open = 1.0f;
+            left_look_x = -0.12f; right_look_x = 0.12f;
+            break;
+
+        case DOC_EXPR_WINK:
+            /* DOC — Base normal; abaixo será fechado apenas o olho esquerdo. */
+            width = 36.0f; height = 34.0f; open = 1.0f;
+            break;
+
+        case DOC_EXPR_FURIOUS:
+            /* DOC — Olhos compactos e estreitos para expressão intensa. */
+            width = 39.0f; height = 20.0f; open = 0.72f;
+            left_offset_y = 1.0f; right_offset_y = 1.0f;
+            break;
+
+        case DOC_EXPR_SMILE:
+            /* DOC — Olhos largos e baixos, estilo sorriso. */
+            width = 40.0f; height = 22.0f; open = 0.82f;
+            left_offset_y = 2.0f; right_offset_y = 2.0f;
+            break;
+
+        case DOC_EXPR_SMUG:
+            /* DOC — Olhar lateral assimétrico, expressão convencida. */
+            width = 35.0f; height = 27.0f; open = 0.84f;
+            left_look_x = 0.28f; right_look_x = 0.42f;
+            left_offset_y = 1.0f; right_offset_y = -2.0f;
+            break;
+
+        case DOC_EXPR_STAR_EYES:
+            /* DOC — Olhos mais abertos; estrelas decorativas não são desenhadas nesta fase. */
+            width = 30.0f; height = 42.0f; open = 1.0f;
+            break;
+
+        case DOC_EXPR_COOL:
+            /* DOC — Olhos horizontais e estreitos, referência visual de óculos escuros. */
+            width = 40.0f; height = 19.0f; open = 0.78f;
+            break;
+
+        case DOC_EXPR_CHEEKY:
+            /* DOC — Um olho mais fechado e olhar deslocado, expressão brincalhona. */
+            width = 37.0f; height = 27.0f; open = 0.90f;
+            left_look_x = -0.22f; right_look_x = 0.24f;
+            break;
+
+        case DOC_EXPR_DERP:
+            /* DOC — Olhos desencontrados e olhar divergente. */
+            width = 31.0f; height = 32.0f; open = 1.0f;
+            left_look_x = -0.48f; right_look_x = 0.48f;
+            left_offset_y = -2.0f; right_offset_y = 2.0f;
+            break;
+
         default:
             break;
     }
@@ -379,6 +448,15 @@ static void apply_expression_targets(void)
 
     left_eye.target_offset_y = left_offset_y;
     right_eye.target_offset_y = right_offset_y;
+
+    /* DOC — Preset assimétrico: piscadela fecha só o olho esquerdo. */
+    if (current_expression == DOC_EXPR_WINK) {
+        left_eye.target_height = 4.0f;
+        left_eye.target_open = 1.0f;
+    } else if (current_expression == DOC_EXPR_CHEEKY) {
+        left_eye.target_height = 17.0f;
+        left_eye.target_open = 0.72f;
+    }
 }
 
 /* DOC — Converte os estados antigos em expressões visuais. */
@@ -412,6 +490,24 @@ static void apply_state_as_expression(eyes_state_t state)
 /* ============================================================
  * DOC — 6. ATUALIZAÇÃO VISUAL DE CADA OLHO
  * ============================================================ */
+
+/* DOC — Paleta emocional: fácil de ajustar sem tocar na lógica da animação. */
+static uint32_t expression_eye_color(void)
+{
+    switch (current_expression) {
+        case DOC_EXPR_LOVE:      return 0xFF6FAE; /* rosa */
+        case DOC_EXPR_SAD:       return 0x58A6FF; /* azul */
+        case DOC_EXPR_ANGRY:
+        case DOC_EXPR_FURIOUS:   return 0xFF5A36; /* vermelho/laranja */
+        case DOC_EXPR_CONFUSED:  return 0xF5C451; /* âmbar */
+        case DOC_EXPR_HAPPY:
+        case DOC_EXPR_SMILE:     return 0x55D6A7; /* verde menta */
+        case DOC_EXPR_STAR_EYES: return 0xFFD34E; /* dourado */
+        case DOC_EXPR_SLEEPY:    return 0x9A9FEF; /* lilás */
+        case DOC_EXPR_COOL:      return 0x9CE7E7; /* ciano claro */
+        default:                 return COLOR_EYE;
+    }
+}
 
 static void update_eye_visual(eye_t *eye, int center_x, int center_y)
 {
@@ -453,6 +549,9 @@ static void update_eye_visual(eye_t *eye, int center_x, int center_y)
 
     lv_obj_set_size(eye->shape, draw_w, draw_h);
     lv_obj_set_pos(eye->shape, x, y);
+
+    /* DOC — Aplica a cor correspondente à expressão ativa. */
+    lv_obj_set_style_bg_color(eye->shape, lv_color_hex(expression_eye_color()), 0);
 
     /* DOC — Mantém as bordas arredondadas ao mudar o tamanho. */
     lv_obj_set_style_radius(eye->shape, LV_RADIUS_CIRCLE, 0);
@@ -722,11 +821,59 @@ void CustomEyes_SetExpression(const char *expression)
 
     } else if (strcmp(normalized, "happy") == 0 ||
                strcmp(normalized, "excited") == 0 ||
-               strcmp(normalized, "love") == 0 ||
-               strcmp(normalized, "glee") == 0 ||
-               strcmp(normalized, "cool") == 0) {
+               strcmp(normalized, "glee") == 0) {
 
         current_expression = DOC_EXPR_HAPPY;
+
+    } else if (strcmp(normalized, "love") == 0 ||
+               strcmp(normalized, "heart") == 0 ||
+               strcmp(normalized, "adoring") == 0) {
+
+        current_expression = DOC_EXPR_LOVE;
+
+    } else if (strcmp(normalized, "dizzy") == 0 ||
+               strcmp(normalized, "spiral") == 0) {
+
+        current_expression = DOC_EXPR_DIZZY;
+
+    } else if (strcmp(normalized, "wink") == 0 ||
+               strcmp(normalized, "winking") == 0) {
+
+        current_expression = DOC_EXPR_WINK;
+
+    } else if (strcmp(normalized, "furious") == 0 ||
+               strcmp(normalized, "rage") == 0) {
+
+        current_expression = DOC_EXPR_FURIOUS;
+
+    } else if (strcmp(normalized, "smile") == 0 ||
+               strcmp(normalized, "smiling") == 0) {
+
+        current_expression = DOC_EXPR_SMILE;
+
+    } else if (strcmp(normalized, "smug") == 0) {
+
+        current_expression = DOC_EXPR_SMUG;
+
+    } else if (strcmp(normalized, "star_eyes") == 0 ||
+               strcmp(normalized, "star-eyes") == 0 ||
+               strcmp(normalized, "star_struck") == 0) {
+
+        current_expression = DOC_EXPR_STAR_EYES;
+
+    } else if (strcmp(normalized, "cool") == 0) {
+
+        current_expression = DOC_EXPR_COOL;
+
+    } else if (strcmp(normalized, "cheeky") == 0 ||
+               strcmp(normalized, "playful") == 0) {
+
+        current_expression = DOC_EXPR_CHEEKY;
+
+    } else if (strcmp(normalized, "derp") == 0 ||
+               strcmp(normalized, "goofy") == 0) {
+
+        current_expression = DOC_EXPR_DERP;
 
     } else if (strcmp(normalized, "sad") == 0 ||
                strcmp(normalized, "cry") == 0 ||
