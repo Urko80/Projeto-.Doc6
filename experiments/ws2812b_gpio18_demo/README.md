@@ -6,6 +6,16 @@ Firmware ESP-IDF independente para testar a barra WS2812B de 8 LEDs usando GPIO1
 
 **Esta experiência não altera nem integra o firmware principal do DOC.** O diretório está fora dos componentes do build principal e só deve ser compilado como projeto ESP-IDF separado.
 
+## Compatibilidade do driver
+
+O código utiliza a API RMT nova do ESP-IDF:
+
+- `driver/rmt_tx.h` para criar e transmitir pelo canal TX.
+- `driver/rmt_encoder.h` para codificar os bytes GRB em símbolos RMT.
+- O componente `esp_driver_rmt` é declarado explicitamente em `main/CMakeLists.txt`.
+
+Isso substitui a API legada `driver/rmt.h`, removida nas versões atuais do ESP-IDF.
+
 ## Justificativa do GPIO
 
 No mapa atual da placa:
@@ -40,19 +50,27 @@ Faça as conexões com a alimentação desligada e confira a identificação de 
 
 Com o ambiente ESP-IDF configurado:
 
-```bash
-cd experiments/ws2812b_gpio18_demo
+```powershell
+# Entre na pasta do projeto experimental
+cd experiments\ws2812b_gpio18_demo
+
+# Configure o alvo ESP32-S3 (necessário na primeira configuração)
 idf.py set-target esp32s3
+
+# Compile o projeto experimental
 idf.py build
 ```
 
+**Não é necessário apagar a pasta `build` entre compilações normais.** Se a configuração do alvo já foi feita, basta executar `idf.py build`.
+
 Para gravar e monitorar, conectar a placa pela USB-C UART e usar a porta serial correspondente:
 
-```bash
-idf.py -p PORTA_SERIAL flash monitor
+```powershell
+# Exemplo de comando; substitua COMx pela porta serial identificada
+idf.py -p COMx flash monitor
 ```
 
-Substitua `PORTA_SERIAL` pela porta efetivamente identificada no computador.
+A gravação e o teste físico são etapas separadas e não fazem parte da validação de compilação.
 
 ## Resultado esperado
 
@@ -67,7 +85,7 @@ Arquivo: `main/main.c`
 - `LED_GPIO`: GPIO de dados (GPIO18).
 - `LED_COUNT`: quantidade de LEDs.
 - `LED_BRIGHTNESS`: brilho de teste.
-- `WS_T0H_TICKS`, `WS_T0L_TICKS`, `WS_T1H_TICKS`, `WS_T1L_TICKS`: temporização do protocolo.
+- `WS_T0H_NS`, `WS_T0L_NS`, `WS_T1H_NS`, `WS_T1L_NS`: temporização do protocolo em nanossegundos.
 - `app_main()`: sequência de demonstração.
 
 ## Escopo e validação
@@ -75,5 +93,5 @@ Arquivo: `main/main.c`
 - Não altera `main/application.cc`, `config.h` ou `doc_ai_s3cam.cc` da aplicação principal.
 - Não modifica a pinagem definitiva do projeto.
 - Não integra o driver WS2812B à inicialização da placa.
-- Não foi validado em hardware nesta etapa.
+- Ainda depende de build local e teste físico para validação.
 - A PR deve permanecer em Draft até a compilação e o teste físico serem concluídos.
