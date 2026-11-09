@@ -105,7 +105,10 @@ static void transmit_led_frame(void)
 {
     const rmt_transmit_config_t transmit_config = {
         .loop_count = 0,
-        .eot_level = 0
+        .flags = {
+            .eot_level = 0,
+            .queue_nonblocking = 0
+        }
     };
 
     ESP_ERROR_CHECK(rmt_transmit(
