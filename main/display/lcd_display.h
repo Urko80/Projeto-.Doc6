@@ -65,6 +65,10 @@ public:
     virtual void SetPreviewImage(std::unique_ptr<LvglImage> image) override;
     // DOC — Alterna entre a prévia normal e o layout de câmera 128x128 em y=32.
     void SetCameraPreviewMode(bool enabled);
+    // DOC — Modo app: olhos sobem para a faixa y=0..31, a boca vira o contorno
+    // da área 128x128 e as barras de status somem. Use em qualquer app
+    // (câmera, rádio, cronômetro, CubeWorld...).
+    void SetAppMode(bool enabled);
     virtual void SetupUI() override;
     // Add theme switching function
     virtual void SetTheme(Theme* theme) override;

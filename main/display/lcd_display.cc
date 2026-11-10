@@ -396,10 +396,35 @@ bool LcdDisplay::Lock(int timeout_ms) { return lvgl_port_lock(timeout_ms); }
 
 void LcdDisplay::Unlock() { lvgl_port_unlock(); }
 
+/* DOC INÍCIO — Modo app: olhos na faixa superior e barras de status ocultas. */
+void LcdDisplay::SetAppMode(bool enabled) {
+    DisplayLockGuard lock(this);
+
+    // O módulo dos olhos faz a subida dos olhos e a boca virar contorno.
+    CustomEyes_SetAppMode(enabled);
+
+    // As barras de status ficariam por cima dos olhos na faixa y=0..31.
+    lv_obj_t* bars[] = {top_bar_, status_bar_};
+    for (lv_obj_t* bar : bars) {
+        if (bar == nullptr) {
+            continue;
+        }
+        if (enabled) {
+            lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_remove_flag(bar, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+/* DOC FIM — Modo app. */
+
 /* DOC INÍCIO — Layout dedicado à prévia da câmera do DOC. */
 void LcdDisplay::SetCameraPreviewMode(bool enabled) {
     DisplayLockGuard lock(this);
     camera_preview_mode_ = enabled;
+
+    // A câmera é um app: olhos para a faixa superior e boca vira o contorno.
+    SetAppMode(enabled);
 
     if (preview_image_ == nullptr) {
         return;  // SetupUI ainda não criou o objeto da prévia.
